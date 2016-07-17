@@ -8,196 +8,200 @@ var externalController = require('./externalController');
 var dataPoolController = require('./dataPoolController');
 var securityUtil = require('../util/securityUtil');
 var errorUtil = require('../util/errorUtil');
-var tokenPool = [];
-
-function getUserIdByToken(token) {
-    if (token) return;
-    return tokenPool.indexOf(token);
-}
-
-function addTokenByUserId(userId, token) {
-    tokenPool[userId] = token;
-}
 
 var controller = {
     init: function (data, callback) {
-        var msg = {
-            err: null
-        };
-        
+        var err = null;
         if (data.token && data.userId) {
-            addTokenByUserId(data.userId, data.token);
+            securityUtil.addTokenByUserId(data.userId, data.token);
         }
         else {
-            msg.err = errorUtil.createError(13);
+            err = errorUtil.createError(13);
         }
-        callback(msg);
+        callback(err);
     },
 
     logout: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-
-        if (userId) {
-            tokenPool[userId] = undefined;
-        }
+        securityUtil.removeToken(data.token);
+        callback();
     },
 
     getItemList: function (data, callback) {
-        var msg = {
-            err: null,
-            list: dataPoolController.getItemList()
-        };
-        
-        callback(msg);
+        securityUtil.verifyToken(data.token, function(err, userId) {
+            if (err) {
+                callback(err);
+                return;
+            }
+            callback(err, dataPoolController.getItemList());
+        });
+    },
+
+    getOwnItems: function (data, callback) {
+        securityUtil.verifyToken(data.token, function(err, userId) {
+            if (err) {
+                callback(err);
+                return;
+            }
+            callback(err, dataPoolController.getOwnItems(userId));
+        });
+    },
+
+    getJoinItems: function (data, callback) {
+        securityUtil.verifyToken(data.token, function(err, userId) {
+            if (err) {
+                callback(err);
+                return;
+            }
+            data.userId = userId;
+            db.queryJoinItems(data, callback);
+        });
+    },
+
+    getItemInfo: function (data, callback) {
+        securityUtil.verifyToken(data.token, function(err, userId) {
+            var result;
+            if (!err) result = dataPoolController.getItemInfo(data);
+
+            callback(err, result);
+        });
     },
 
     //Like item
     getLikeItemList: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-
-        var msg = {
-            err: null
-        };
-        if (userId) {
-            db.queryLikeItem(userId, function (err, result) {
-                if (err) {
-                    msg.err = errorUtil.createError(2, err);
-                    callback(msg);
-                }
-                else {
-                    msg.result = result;
-                    callback(msg);
-                }
-            });
-        }
-        else {
-            msg.err = errorUtil.createError(5);
-            callback(msg);
-        }
+        securityUtil.verifyToken(data.token, function (err, userId) {
+            data.userId = userId;
+            if (!err) {
+                db.queryLikeItem(data, function (err, result) {
+                    if (err) {
+                        err = errorUtil.createError(2, err);
+                    }
+                    callback(err, result);
+                });
+            }
+            else {
+                callback(err);
+            }
+        });
     },
 
-    addLikeItem: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-        data.userId = userId;
-
-        var msg = {};
-        if (userId) {
-            db.addLikeItem(data, function(err) {
-                if (err) {
-                    msg.err = errorUtil.createError(2, err);
-                    callback(msg);
-                }
-                else {
-                    callback(msg);
-                }
-            });
-        }
-        else {
-            msg.err = errorUtil.createError(5);
-            callback(msg);
-        }
+    isLikeItem: function (data, callback) {
+        securityUtil.verifyToken(data.token, function (err, userId) {
+            data.userId = userId;
+            if (!err) {
+                db.isLikeItem(data, function (err, result) {
+                    if (err) {
+                        err = errorUtil.createError(2, err);
+                    }
+                    callback(err, [{like: result}])
+                });
+            }
+            else {
+                callback(err);
+            }
+        });
     },
 
-    removeLikeItem: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-        data.userId = userId;
-
-        var msg = {};
-        if (userId) {
-            db.removeLikeItem(data, function(err) {
-                if (err) {
-                    msg.err = errorUtil.createError(2, err);
-                    callback(msg);
-                }
-                else {
-                    callback(msg);
-                }
-            });
-        }
-        else {
-            msg.err = errorUtil.createError(5);
-            callback(msg);
-        }
+    changeLikeItem: function (data, callback) {
+        securityUtil.verifyToken(data.token, function (err, userId) {
+            data.userId = userId;
+            if (!err) {
+                db.changeLikeItem(data, function (err, result) {
+                    if (err) {
+                        err = errorUtil.createError(2, err);
+                    }
+                    callback(err, result);
+                });
+            }
+            else {
+                callback(err);
+            }
+        });
     },
 
     //Normal item
     addItem: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-
-        var msg = {};
-        if (userId) {
-            data.itemId = securityUtil.generateId();
-
-            var cashUserId = securityUtil.generateId();
-            var password = securityUtil.generateId();
-            var payword = securityUtil.generateId();
-            var cashUserData = {
-                userId: cashUserId,
-                password: password,
-                payword: payword
-            };
-
-            externalController.addBizUser(cashUserData, function (err) {
-                if (err) {
-                    msg.err = err;
-                    callback(msg);
-                }
-                else {
-                    dataPoolController.addCashUser(cashUserData);
-                    data.cashUserId = cashUserId;
-                    data.status = 1;
-                    db.addItem(data, function (err) {
-                        if (err) {
-                            msg.err = err;
-                            callback(msg);
-                        }
-                        else {
-                            db.addCashUsers(cashUserData, function (err) {
-                                if (!err) {
-                                    dataPoolController.addItem(data);
-                                }
-                                msg.err = err;
-                                callback(msg);
-                            });
-                        }
+        securityUtil.verifyToken(data.token, function (err, userId) {
+            if (!err) {
+                data.userId = userId;
+                securityUtil.generateRandomBytes(7, null, function (itemId) {
+                    data.itemId = itemId;
+                    securityUtil.generateCashUser(null, function (cashUserData) {
+                        externalController.addBizUser(cashUserData, function (err) {
+                            if (err) {
+                                callback(err);
+                            }
+                            else {
+                                data.cashUserId = cashUserData.userId;
+                                data.status = 1;
+                                data.moneySum = 0;
+                                data.startTime = new Date().toMysqlFormat();
+                                db.addItem(data, function (err) {
+                                    if (err) {
+                                        callback(errorUtil.createError(2), err);
+                                    }
+                                    else {
+                                        db.queryItem({itemId: itemId}, function (err, result) {
+                                            if (err) {
+                                                callback(errorUtil.createError(2), err);
+                                            }
+                                            else {
+                                                dataPoolController.addItem(result[0]);
+                                                db.addCashUsers(cashUserData, function (err) {
+                                                    if (err) {
+                                                        err = errorUtil.createError(2, err);
+                                                    }
+                                                    else {
+                                                        dataPoolController.addCashUser(cashUserData);
+                                                    }
+                                                    callback(err);
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
                     });
-                }
-            });
-        }
-        else {
-            msg.err = errorUtil.createError(5);
-            callback(msg);
-        }
+                });
+            }
+            else {
+                callback(err);
+            }
+        });
     },
 
     joinItem: function (data, callback) {
-        var userId = getUserIdByToken(data.token);
-
-        var msg = {};
-        if (userId) {
-            db.queryItem(data, function (err, result) {
-                if (err) {
-                    msg.err = errorUtil.createError(2, err);
-                    callback(msg);
-                }
-                else {
-                    if (!result[0]) {
-                        msg.err = errorUtil.createError(12);
+        securityUtil.verifyToken(data.token, function (err, userId) {
+            if (!err) {
+                data.userId = userId;
+                var item = dataPoolController.findItem(data.itemId);
+                if (item && item.status == 1) {
+                    securityUtil.generateRandomBytes(7, null, function (recordId) {
+                        data.id = recordId;
                         db.joinItem(data, function (err) {
                             if (err) {
-                                msg.err = errorUtil.createError(2, err);
-                                callback(msg);
+                                err = errorUtil.createError(2, err);
                             }
-                            callback(msg);
+                            else {
+                                dataPoolController.joinItem(data);
+                            }
+                            callback(err);
                         });
+                    });
+                }
+                else {
+                    if (!item) {
+                        callback(errorUtil.createError(14));
+                    }
+                    else {
+                        callback(errorUtil.createError(15));
                     }
                 }
-            });
-        }
-        else {
-            msg.err = errorUtil.createError(5);
-            callback(msg);
-        }
+            }
+            else {
+                callback(err);
+            }
+        });
     },
 };
 

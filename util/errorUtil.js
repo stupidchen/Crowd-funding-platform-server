@@ -1,6 +1,7 @@
 /**
  * Created by mike on 7/8/16.
  */
+"use strict";
 
 var errorUtil = {
     getErrorCode: function (error) {
@@ -20,6 +21,16 @@ var errorUtil = {
             message: 'Unknown error'
         };
         switch (errorCode) {
+            case 15:
+                err.host = 'client';
+                err.message = 'This item has been stop!'
+                break;
+            
+            case 14:
+                err.host = 'client';
+                err.message = 'This item is not exist!';
+                break;
+            
             case 13:
                 err.host = 'interaction';
                 err.message = 'Disconnect from payment-platform.';

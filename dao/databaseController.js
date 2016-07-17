@@ -5,64 +5,122 @@
 
 var mysql = require('mysql');
 var errorUtil = require('../util/errorUtil');
-var connection = mysql.createConnection({
-    host: 'localhost',
-    port: '3306',
-    user: 'root',
-    password: '12345687',
-    database: 'xcccf_cf',
-});
+var configUtil = require('../util/configUtil');
 
-function getSQLDateTime(normalDate) {
-    var date = date.getUTCFullYear() + '-' +
-        ('00' + (date.getUTCMonth()+1)).slice(-2) + '-' +
-        ('00' + date.getUTCDate()).slice(-2) + ' ' +
-        ('00' + date.getUTCHours()).slice(-2) + ':' +
-        ('00' + date.getUTCMinutes()).slice(-2) + ':' +
-        ('00' + date.getUTCSeconds()).slice(-2);
-    return date;
-}
+var connection = mysql.createConnection({
+    host: configUtil.external.database.host,
+    port: configUtil.external.database.port,
+    user: configUtil.external.database.user,
+    password: configUtil.external.database.password,
+    database: configUtil.external.database.scheme,
+});
 
 var databaseController = {
     queryItem: function (data, callback) {
         var query = '';
-        var fromStartTime = getSQLDateTime(data.fromStartTime);
-        var toStartTime = getSQLDateTime(data.toStartTime);
-        var fromEndTime = getSQLDateTime(data.fromEndTime);
-        var toEndTime = getSQLDateTime(data.toEndTime);
-        if (data.fromStartTime) {
-            query = query + ' startTime >= ' + fromStartTime + ' AND';
+        var fromStartTime = data.fromStartTime;
+        var toStartTime = data.toStartTime;
+        var fromEndTime = data.fromEndTime;
+        var toEndTime = data.toEndTime;
+        var first = true;
+        if (fromStartTime) {
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' startTime >= \"' + fromStartTime + '\"';
         }
-        if (data.toStartTime) {
-            query = query + ' startTime <= ' + toStartTime + ' AND';
+        if (toStartTime) {
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' startTime <= \"' + toStartTime + '\"';
         }
-        if (data.fromEndTime) {
-            query = query + ' startTime >= ' + fromEndTime + ' AND';
+        if (fromEndTime) {
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' startTime >= \"' + fromEndTime + '\"';
         }
-        if (data.toEndTime) {
-            query = query + ' startTime <= ' + toEndTime + ' AND';
+        if (toEndTime) {
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' startTime <= \"' + toEndTime + '\"';
         }
         if (data.itemId) {
-            query = query + ' itemId = ' + data.itemId + ' AND';
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' itemId = \"' + data.itemId + '\"';
         }
         if (data.tag) {
-            query = query + ' tag = ' + data.tag + ' AND';
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' tag = \"' + data.tag + '\"';
         }
-        connection.query('SELECT * FROM users WHERE ?', query, callback);
+        if (data.userId) {
+            if (first) {
+                first = false;
+            }
+            else {
+                query += ' AND ';
+            }
+
+            query = query + ' userId = \"' + data.userId + '\"';
+        }
+
+        if (query.length > 0) {
+            connection.query('SELECT * FROM items WHERE ' + query, callback);
+        }
+        else {
+            connection.query('SELECT * FROM items', query, callback);
+        }
     },
+
+    queryJoinItems: function (data, callback) {
+        var userId = data.userId;
+
+        connection.query('SELECT * FROM items WHERE itemId in (SELECT itemId FROM itemJoiner WHERE userId = ?)', userId, callback);
+    },
+    
     
     queryLikeItem: function (data, callback) {
         var userId = data.userId;
 
-        connection.query('SELECT * FROM (itemLike join items) WHERE userId = ?', userId, callback);
+        connection.query('SELECT * FROM items WHERE itemId in (SELECT itemId FROM itemLike WHERE userId = ?)', userId, callback);
     },
     
     queryCashUser: function (data, callback) {
-        if (data.userID) {
-            connection.query('SELECT * FROM users WHERE userId = ?', data.userId, callback);
+        if (data.userId) {
+            connection.query('SELECT * FROM cashUsers WHERE userId = ?', data.userId, callback);
         }
         else {
-            connection.query('SELECT * FROM users', callback);
+            connection.query('SELECT * FROM cashUsers', callback);
         }
     },
 
@@ -71,17 +129,27 @@ var databaseController = {
     },
 
     addItem: function (data, callback) {
-        var startTime = getSQLDateTime(data.startTime);
-        var endTime = getSQLDateTime(data.endTime);
         connection.query('INSERT INTO items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [data.itemId, data.userId, data.cashUserId, data.title, data.description, startTime,
-            endTime, 0, data.moneyGoal, data.status, data.tag],
+            [data.itemId, data.userId, data.title, data.cashUserId, data.description, data.startTime,
+            data.endTime, data.moneySum, data.moneyGoal, data.status, data.tag],
             callback);
+    },
+    
+    updateCashUser: function (data, callback) {
+        connection.query('UPDATE cashUsers u SET u.status = ? WHERE userId = ?', [data.status, data.userId], callback);
+    },
+    
+    updateItem: function (data, callback) {
+        var query = '';
+        query = ' i.moneySum = ' + data.moneySum;
+        connection.query('UPDATE items i SET ' + query + ' WHERE itemId = ?', data.itemId, callback);
+        query = ' i.status = ' + data.status;
+        connection.query('UPDATE items i SET ' + query + ' WHERE itemId = ?', data.itemId, callback);
     },
 
     joinItem: function (data, callback) {
         connection.query('INSERT INTO itemJoiner VALUES(?, ?, ?, ?)',
-            [data.id, data.itemId, data.userId, data.money],
+            [data.id, data.itemId, data.userId, data.amount],
             callback);
     },
     
@@ -90,24 +158,38 @@ var databaseController = {
             [data.userId, data.password, data.payword, 1],
             callback);
     },
-
-    addLikeItem: function (data, callback) {
-        connection.query('INSERT INTO itemLike VALUES(?, ?)', [data.itemId, data.userId], function (err) {
-            var msg = {
-                err: err
-            };
-            callback(err);
+    
+    isLikeItem: function (data, callback) {
+        connection.query('SELECT * FROM itemLike WHERE itemId = ? AND userId = ?', [data.itemId, data.userId], function (err, result) {
+            if (err) {
+                callback(err);
+                return;
+            }
+            if (result.length > 0) {
+                callback(null, true);
+            }
+            else {
+                callback(null, false);
+            }
         });
     },
-
-    removeLikeItem: function (data, callback) {
-        connection.query('DELECT FROM itemLike WHERE itemId = ? AND userID = ?', [data.itemId, data.userId], function (err) {
-            var msg = {
-                err: err
-            };
-            callback(err);
+    
+    changeLikeItem: function (data, callback) {
+        this.isLikeItem(data, function (err, result) {
+            if (err) {
+                callback(err);
+                return;
+            }
+            if (result) {
+                connection.query('DELETE FROM itemLike WHERE itemId = ? AND userID = ?', [data.itemId, data.userId]);
+                callback(null, [{like: false}]);
+            }
+            else {
+                connection.query('INSERT INTO itemLike VALUES(?, ?)', [data.itemId, data.userId], callback);
+                callback(null, [{like: true}]);
+            }
         });
-    },
+    }
 };
 
 module.exports = databaseController;

@@ -1,44 +1,50 @@
 /**
  * Created by mike on 7/11/16.
  */
+"use strict";
 
 var http = require('http');
 var errorUtil = require('../util/errorUtil');
-var options = {
-    host: 'localhost',
-    port: '3000',
-    method: 'POST',
-    headers: headers
-};
+var configUtil = require('../util/configUtil');
 
-function sendRequest(options, callback) {
-    http.request(options, function (response) {
+function sendRequest(path, body, callback) {
+    var options = {
+        host: configUtil.external.pay.host,
+        port: configUtil.external.pay.port,
+        method: configUtil.external.pay.method,
+        path: path,
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': body.length
+        }
+    };
+    var request = http.request(options, function (response) {
         if (response.statusCode != 200) {
-            callback(errorUtil.createError(11, response));
+            callback(errorUtil.createError(13));
         }
         else {
-            callback(JSON.parse(response.body));
+            var result = '';
+            response.on('data', function (chunk) {
+                result += chunk;
+            }).on('end', function () {
+                callback(null, JSON.parse(result));
+            });
         }
     });
+    request.end(body);
 }
 
 var controller = {
     addBizUser: function (data, callback) {
-        options.path = '/register';
-        options.body = JSON.stringify(data);
-        sendRequest(options, callback);
+        sendRequest('/register', JSON.stringify(data), callback);
     },
 
     bizUserLogin: function (data, callback) {
-        options.path = '/login';
-        options.body = JSON.stringify(data);
-        sendRequest(options, callback);
+        sendRequest('/login', JSON.stringify(data), callback);
    },
     
     bizUserTransfer: function (data, callback) {
-        options.path = '/transfer';
-        options.body = JSON.stringify(data);
-        sendRequest(options, callback);
+        sendRequest('/transfer', JSON.stringify(data), callback);
     },
 };
 
