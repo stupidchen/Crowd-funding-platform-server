@@ -7,6 +7,7 @@ var config = {
     external: {
         pay: {
             host: process.env.PAY_HOST || 'localhost',
+            port: process.env.PAY_PORT || '3000',
             method: process.env.PAY_METHOD || 'POST'
         },
 
