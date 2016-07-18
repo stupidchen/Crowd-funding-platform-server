@@ -206,7 +206,7 @@ var controller = {
     },
     
     //Dumb-ass requirements
-    getUrl: function (callback) {
+    getUrl: function (data, callback) {
         callback(null, uselessUtil.getUrl());
     },
     
