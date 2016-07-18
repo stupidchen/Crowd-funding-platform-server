@@ -8,6 +8,7 @@ var externalController = require('./externalController');
 var dataPoolController = require('./dataPoolController');
 var securityUtil = require('../util/securityUtil');
 var errorUtil = require('../util/errorUtil');
+var uselessUtil = require('../util/uselessUtil');
 
 var controller = {
     init: function (data, callback) {
@@ -203,6 +204,19 @@ var controller = {
             }
         });
     },
+    
+    //Dumb-ass requirements
+    getUrl: function (callback) {
+        callback(null, uselessUtil.getUrl());
+    },
+    
+    setUrl: function (data, callback) {
+        if (data.id && data.url) uselessUtil.setUrl(data.id, data.url);
+    },
+    
+    addUrl: function (data, callback) {
+        if (data.url) uselessUtil.addUrl(data.url);
+    }
 };
 
 module.exports = controller;

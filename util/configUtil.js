@@ -33,7 +33,10 @@ var config = {
             addItem: '/addItem',
             joinItem: '/joinItem',
             getOwnItems: '/getOwnItems',
-            getJoinItems: '/getJoinItems'
+            getJoinItems: '/getJoinItems',
+            getUrl: '/getUrl',
+            updateUrl: '/updateUrl',
+            addUrl: '/addUrl'
         }
     },
 }

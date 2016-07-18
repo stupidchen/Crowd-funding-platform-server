@@ -98,6 +98,28 @@ router.post(configUtil.system.interface.getJoinItems, function (req, res, next) 
     });
 });
 
+//Dumb-ass requirements
+router.post(configUtil.system.interface.getUrl, function (req, res, next) {
+    var body = requestOpener(req.body);
+    controller.getUrl(body, function (err, result) {
+        sendMessageByJson(res, messageWrapper(err, result));
+    });
+});
+
+router.post(configUtil.system.interface.addUrl, function (req, res, next) {
+    var body = requestOpener(req.body);
+    controller.addUrl(body, function (err, result) {
+        sendMessageByJson(res, messageWrapper(err, result));
+    });
+});
+
+router.post(configUtil.system.interface.setUrl(), function (req, res, next) {
+    var body = requestOpener(req.body);
+    controller.setUrl(body, function (err, result) {
+        sendMessageByJson(res, messageWrapper(err, result));
+    });
+});
+
 function requestOpener(data) {
     if (data.data) {
         var token = data.token;
