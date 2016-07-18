@@ -35,7 +35,7 @@ var config = {
             getOwnItems: '/getOwnItems',
             getJoinItems: '/getJoinItems',
             getUrl: '/getUrl',
-            updateUrl: '/updateUrl',
+            setUrl: '/setUrl',
             addUrl: '/addUrl'
         }
     },
